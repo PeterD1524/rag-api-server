@@ -25,6 +25,14 @@
 
 LlamaEdge-RAG API server provides a group of OpenAI-compatible web APIs for the Retrieval-Augmented Generation (RAG) applications. The server is implemented in WebAssembly (Wasm) and runs on [WasmEdge Runtime](https://github.com/WasmEdge/WasmEdge).
 
+This is a search-enabled API server forked from the rag-api-server but with the following unique features:
+
+- It will use the user question as the query to search Google first.
+- The top search results are then added to the LLM conversation context as the system_prompt. It is the same way as vector search results are added to the context in the rag-api-server.
+- Generate and return the server response.
+
+Therefore, these endpoints are irrelevant: `/v1/files`, `/v1/chunks`, `/v1/embeddings`, `/v1/create/rag`, and `/v1/retrieve`.
+
 ### Endpoints
 
 #### `/v1/models` endpoint
@@ -67,31 +75,31 @@ Ask a question using OpenAI's JSON message format.
 curl -X POST http://localhost:8080/v1/chat/completions \
     -H 'accept:application/json' \
     -H 'Content-Type: application/json' \
-    -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "Who is Robert Oppenheimer?"}], "model":"llama-2-chat"}'
+    -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "Who is Robert Oppenheimer?"}], "model":"Llama-2-7b-chat-hf-Q2_K"}'
 ```
 
 Here is the response.
 
 ```json
 {
-    "id":"",
-    "object":"chat.completion",
-    "created":1697092593,
-    "model":"llama-2-chat",
-    "choices":[
+    "id": "chatcmpl-ccb9ff7b-01b9-464c-a2e4-badd62b82adf",
+    "object": "chat.completion",
+    "created": 1716017817,
+    "model": "Llama-2-7b-chat-hf-Q2_K",
+    "choices": [
         {
-            "index":0,
-            "message":{
-                "role":"assistant",
-                "content":"Robert Oppenheimer was an American theoretical physicist and director of the Manhattan Project, which developed the atomic bomb during World War II. He is widely regarded as one of the most important physicists of the 20th century and is known for his contributions to the development of quantum mechanics and the theory of the atomic nucleus. Oppenheimer was also a prominent figure in the post-war nuclear weapons debate, advocating for international control and regulation of nuclear weapons."
-            },
-            "finish_reason":"stop"
+        "index": 0,
+        "message": {
+            "role": "assistant",
+            "content": "Robert Oppenheimer was a renowned American theoretical physicist and scientific leader who played a crucial role in the development of the atomic bomb during World War II. He is often referred to as the \"father of the atomic bomb.\" Oppenheimer was born in 1904 in New York City, New York, and he received his education from Harvard University, where he earned his PhD in physics.\n\nOppenheimer's significant contributions to science began in 1941 when he became involved in nuclear research, leading the design and development of the first atomic bombs as the director of the Manhattan Project's Los Alamos Laboratory. His work on this project earned him international recognition, and he is often credited with being a founding father of the American school of theoretical physics.\n\nIn addition to his work in nuclear research, Oppenheimer also made important contributions to astrophysics and wrote several books on science, including \"The Structure of the Atom\" and \"Chemical Puzzles.\" He was a solitary and precocious child who enjoyed mineralogy and writing poetry, and he later became involved in the Manhattan Project after serving as the director of the Institute for Advanced Study from 1947 to 1966.\n\nOppenheimer's legacy extends beyond his scientific achievements. He was a complex and enigmatic figure who was known for his intense focus and dedication to his work, as well as his controversial views on science and society. His life and work have been the subject of numerous books, articles, and films, including the 2023 film \"Oppenheimer.\"\n\nOverall, Robert Oppenheimer was a remarkable scientist and leader who made groundbreaking contributions to our understanding of the universe and the development of nuclear weapons. His legacy continues to inspire scientists, historians, and the general public alike."
+        },
+        "finish_reason": "stop"
         }
     ],
-    "usage":{
-        "prompt_tokens":9,
-        "completion_tokens":12,
-        "total_tokens":21
+    "usage": {
+        "prompt_tokens": 511,
+        "completion_tokens": 407,
+        "total_tokens": 918
     }
 }
 ```
@@ -436,7 +444,7 @@ source $HOME/.bashrc
 
 ```bash
 # Clone the repository
-git clone https://github.com/LlamaEdge/rag-api-server.git
+git clone https://github.com/PeterD1524/rag-api-server.git
 
 # Change the working directory
 cd rag-api-server
@@ -509,33 +517,20 @@ To check the CLI options of the `rag-api-server` wasm app, you can run the follo
 
 ## Execute
 
-LlamaEdge-RAG API server requires two types of models: chat and embedding. The chat model is used for generating responses to user queries, while the embedding model is used for computing embeddings for user queries or file chunks.
+LlamaEdge-RAG API server requires two types of models: chat and embedding. The chat model is used for generating responses to user queries, while the embedding model is not used for the `/v1/chat/completions` endpoint. Unfortunately the embedding model is still required to start the program currently.
 
-Execution also requires the presence of a running [Qdrant](https://qdrant.tech/) service.
+Execution does not require the presence of a running [Qdrant](https://qdrant.tech/) service.
 
-For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q5_K_M.gguf) and [all-MiniLM-L6-v2-ggml-model-f16.gguf](https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-ggml-model-f16.gguf) models as examples. Download these models and place them in the root directory of the repository.
-
-- Ensure the Qdrant service is running
-
-    ```bash
-    # Pull the Qdrant docker image
-    docker pull qdrant/qdrant
-
-    # Create a directory to store Qdrant data
-    mkdir qdrant_storage
-
-    # Run Qdrant service
-    docker run -p 6333:6333 -p 6334:6334 -v /home/nsen/llamaedge/rag-api-server/qdrant_storage:/qdrant/storage:z qdrant/qdrant
-    ```
+For the purpose of demonstration and I have limited GPU memory, we use the smallest models [second-state/Llama-2-7B-Chat-GGUF/Llama-2-7b-chat-hf-Q2_K.gguf](https://huggingface.co/second-state/Llama-2-7B-Chat-GGUF/resolve/main/Llama-2-7b-chat-hf-Q2_K.gguf) and [second-state/All-MiniLM-L6-v2-Embedding-GGUF/all-MiniLM-L6-v2-Q2_K.gguf](https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-Q2_K.gguf) as examples. Download these models and place them in the root directory of the repository.
 
 - Start an instance of LlamaEdge-RAG API server
 
   ```bash
   # Assume that the `rag-api-server.wasm` and the model files are in the root directory of the repository
-  wasmedge --dir .:. --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q5_K_M.gguf \
-      --nn-preload embedding:GGML:AUTO:all-MiniLM-L6-v2-ggml-model-f16.gguf \
+  wasmedge --dir .:. --nn-preload default:GGML:AUTO:Llama-2-7b-chat-hf-Q2_K.gguf \
+      --nn-preload embedding:GGML:AUTO:all-MiniLM-L6-v2-Q2_K.gguf \
       rag-api-server.wasm \
-      --model-name Llama-2-7b-chat-hf-Q5_K_M,all-MiniLM-L6-v2-ggml-model-f16 \
+      --model-name Llama-2-7b-chat-hf-Q2_K,all-MiniLM-L6-v2-Q2_K \
       --ctx-size 4096,384 \
       --prompt-template llama-2-chat \
       --rag-prompt "Use the following pieces of context to answer the user's question.\nIf you don't know the answer, just say that you don't know, don't try to make up an answer.\n----------------\n" \
@@ -547,17 +542,11 @@ For the purpose of demonstration, we use the [Llama-2-7b-chat-hf-Q5_K_M.gguf](ht
 
 - [Execute](#execute) the server
 
-- Generate embeddings for [paris.txt](https://huggingface.co/datasets/gaianet/paris/raw/main/paris.txt) via the `/v1/create/rag` endpoint
-
-    ```bash
-    curl -X POST http://127.0.0.1:8080/v1/create/rag -F "file=@paris.txt"
-    ```
-
 - Ask a question
 
     ```bash
     curl -X POST http://localhost:8080/v1/chat/completions \
         -H 'accept:application/json' \
         -H 'Content-Type: application/json' \
-        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What is the location of Paris, France along the Seine River?"}], "model":"Llama-2-7b-chat-hf-Q5_K_M"}'
+        -d '{"messages":[{"role":"system", "content": "You are a helpful assistant."}, {"role":"user", "content": "What is the location of Paris, France along the Seine River?"}], "model":"Llama-2-7b-chat-hf-Q2_K"}'
     ```
