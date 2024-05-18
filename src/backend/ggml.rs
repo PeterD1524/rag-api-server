@@ -319,10 +319,10 @@ pub(crate) async fn rag_query_handler(
         }
     };
 
-    println!("\n[+] Computing embeddings for user query ...");
+    println!("\n[+] Retrieving context ...");
 
-    // * compute embeddings for user query
-    let embedding_response = match chat_request.messages.is_empty() {
+    // * retrieve context
+    let query = match chat_request.messages.is_empty() {
         true => return error::bad_request("Messages should not be empty"),
         false => {
             let last_message = chat_request.messages.last().unwrap();
@@ -339,119 +339,52 @@ pub(crate) async fn rag_query_handler(
 
                     println!("    * user query: {}\n", query_text);
 
-                    // get the available embedding models
-                    let embedding_model_names = match llama_core::utils::embedding_model_names() {
-                        Ok(model_names) => model_names,
-                        Err(e) => return error::internal_server_error(e.to_string()),
-                    };
-
-                    // create a embedding request
-                    let embedding_request = EmbeddingRequest {
-                        model: embedding_model_names[0].clone(),
-                        input: query_text.into(),
-                        encoding_format: None,
-                        user: chat_request.user.clone(),
-                    };
-
-                    if let Ok(request_str) = serde_json::to_string_pretty(&embedding_request) {
-                        println!("    * embedding request (json):\n\n{}", request_str);
-                    }
-
-                    let rag_embedding_request = RagEmbeddingRequest {
-                        embedding_request,
-                        qdrant_url: server_info.qdrant_config.url.clone(),
-                        qdrant_collection_name: server_info.qdrant_config.collection_name.clone(),
-                    };
-
-                    // compute embeddings for query
-                    match llama_core::rag::rag_query_to_embeddings(&rag_embedding_request).await {
-                        Ok(embedding_response) => embedding_response,
-                        Err(e) => {
-                            return error::internal_server_error(e.to_string());
-                        }
-                    }
+                    query_text
                 }
                 _ => return error::bad_request("The last message must be a user message"),
             }
         }
     };
-    let query_embedding: Vec<f32> = match embedding_response.data.first() {
-        Some(embedding) => embedding.embedding.iter().map(|x| *x as f32).collect(),
-        None => return error::internal_server_error("No embeddings returned"),
-    };
-
-    println!("\n[+] Retrieving context ...");
-
-    // * retrieve context
-    let ro = match llama_core::rag::rag_retrieve_context(
-        query_embedding.as_slice(),
-        server_info.qdrant_config.url.to_string().as_str(),
-        server_info.qdrant_config.collection_name.as_str(),
-        server_info.qdrant_config.limit as usize,
-        Some(server_info.qdrant_config.score_threshold),
-    )
-    .await
-    {
-        Ok(search_result) => search_result,
-        Err(e) => {
-            return error::internal_server_error(e.to_string());
-        }
-    };
-
-    match ro.points {
-        Some(scored_points) => {
-            match scored_points.is_empty() {
-                true => {
-                    println!(
-                        "    * No point retrieved (score < threshold {})",
-                        server_info.qdrant_config.score_threshold
-                    );
-                    println!("\n[+] Answer the user query ...");
+    match crate::backend::google_search::retrieve_context(query, true).await {
+        Ok(search_results) => match search_results.is_empty() {
+            true => {
+                println!("    * No search results retrieved");
+                println!("\n[+] Answer the user query ...");
+            }
+            false => {
+                let mut context = String::new();
+                for html in search_results {
+                    context.push_str(&html);
+                    context.push_str("\n\n");
                 }
-                false => {
-                    // update messages with retrieved context
-                    let mut context = String::new();
-                    for (idx, point) in scored_points.iter().enumerate() {
-                        println!("    * Point {}: score: {}", idx, point.score);
-                        println!("      Source: {}", &point.source);
 
-                        context.push_str(&point.source);
-                        context.push_str("\n\n");
-                    }
+                if chat_request.messages.is_empty() {
+                    return error::internal_server_error("No message in the chat request.");
+                }
 
-                    if chat_request.messages.is_empty() {
-                        return error::internal_server_error("No message in the chat request.");
-                    }
-
-                    let prompt_template = match llama_core::utils::chat_prompt_template(
-                        chat_request.model.as_deref(),
-                    ) {
+                let prompt_template =
+                    match llama_core::utils::chat_prompt_template(chat_request.model.as_deref()) {
                         Ok(prompt_template) => prompt_template,
                         Err(e) => {
                             return error::internal_server_error(e.to_string());
                         }
                     };
 
-                    // insert rag context into chat request
-                    if let Err(e) = RagPromptBuilder::build(
-                        &mut chat_request.messages,
-                        &[context],
-                        prompt_template.has_system_prompt(),
-                        server_info.rag_config.policy,
-                    ) {
-                        return error::internal_server_error(e.to_string());
-                    }
-
-                    println!("\n[+] Answer the user query with the context info ...");
+                // insert rag context into chat request
+                if let Err(e) = RagPromptBuilder::build(
+                    &mut chat_request.messages,
+                    &[dbg!(context)],
+                    prompt_template.has_system_prompt(),
+                    server_info.rag_config.policy,
+                ) {
+                    return error::internal_server_error(e.to_string());
                 }
+
+                println!("\n[+] Answer the user query with the context info ...");
             }
-        }
-        None => {
-            println!(
-                "    * No point retrieved (score < threshold {})",
-                server_info.qdrant_config.score_threshold
-            );
-            println!("\n[+] Answer the user query ...");
+        },
+        Err(e) => {
+            return error::internal_server_error(e.to_string());
         }
     }
 
