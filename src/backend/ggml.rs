@@ -373,7 +373,7 @@ pub(crate) async fn rag_query_handler(
                 // insert rag context into chat request
                 if let Err(e) = RagPromptBuilder::build(
                     &mut chat_request.messages,
-                    &[dbg!(context)],
+                    &[context],
                     prompt_template.has_system_prompt(),
                     server_info.rag_config.policy,
                 ) {

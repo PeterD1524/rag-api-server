@@ -2,8 +2,7 @@ async fn request(
     client: &reqwest::Client,
     request: reqwest::Request,
 ) -> Result<bytes::BytesMut, reqwest::Error> {
-    dbg!(request.url().as_str());
-    let mut response = client.execute(dbg!(request)).await?.error_for_status()?;
+    let mut response = client.execute(request).await?.error_for_status()?;
     let mut buffer = bytes::BytesMut::new();
     loop {
         // TODO: Is response.chunk() cancellation safe?
@@ -46,7 +45,7 @@ fn parse_google_search_texts(document: scraper::Html) -> Vec<String> {
         .select(&div_selector)
         .filter_map(|div| {
             if div.attr("role") == None {
-                Some(dbg!(div.text().collect::<Vec<_>>().join(" ")))
+                Some(div.text().collect::<Vec<_>>().join(" "))
             } else {
                 None
             }
