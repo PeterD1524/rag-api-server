@@ -26,7 +26,7 @@ async fn google_search(
     Ok(request(
         &client,
         client
-            .get("http://www.google.com/search")
+            .get("https://www.google.com/search")
             // make google return UTF-8
             .header("User-Agent", "Mozilla/5.0")
             .query(&[("hl", "en"), ("q", q)])
@@ -109,24 +109,10 @@ pub(crate) async fn retrieve_context(query: &str, simple: bool) -> anyhow::Resul
     Ok(if simple {
         parse_google_search_texts(document)
     } else {
-        get_bodies(
-            &client,
-            parse_google_search_urls(document)
-                .into_iter()
-                .filter_map(|url| {
-                    if let Ok(mut url) = url::Url::parse(&url) {
-                        // hyper-wasi does not support https
-                        url.set_scheme("http").ok()?;
-                        Some(url)
-                    } else {
-                        None
-                    }
-                }),
-        )
-        .await
-        .into_iter()
-        //
-        .map(|body| String::from_utf8_lossy(&body).into_owned())
-        .collect()
+        get_bodies(&client, parse_google_search_urls(document).into_iter())
+            .await
+            .into_iter()
+            .map(|body| String::from_utf8_lossy(&body).into_owned())
+            .collect()
     })
 }
