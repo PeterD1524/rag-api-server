@@ -104,7 +104,6 @@ where
 pub(crate) async fn retrieve_context(query: &str, simple: bool) -> anyhow::Result<Vec<String>> {
     let client = reqwest::Client::new();
     let body = google_search(&client, query).await?;
-    std::fs::write("index.html", &body).unwrap();
     let document = scraper::Html::parse_document(std::str::from_utf8(&body)?);
     Ok(if simple {
         parse_google_search_texts(document)
