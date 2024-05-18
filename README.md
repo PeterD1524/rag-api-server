@@ -399,13 +399,13 @@ If the command runs successfully, you should see the similar output as below in 
 
 ## Setup
 
-Llama-RAG API server runs on WasmEdge Runtime. According to the operating system you are using, choose the installation command:
+Llama-RAG API server runs on WasmEdge Runtime. The WASI-NN plug-in with ggml backend and TLS plug-in are required. According to the operating system you are using, choose the installation command:
 
 <details> <summary> For macOS (apple silicon) </summary>
 
 ```console
-# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
-curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+# install WasmEdge-0.13.4 with wasi-nn-ggml and tls plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml wasmedge_rustls
 
 # Assuming you use zsh (the default shell on macOS), run the following command to activate the environment
 source $HOME/.zshenv
@@ -419,8 +419,8 @@ source $HOME/.zshenv
 # install libopenblas-dev
 apt update && apt install -y libopenblas-dev
 
-# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
-curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+# install WasmEdge-0.13.4 with wasi-nn-ggml and tls plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml wasmedge_rustls
 
 # Assuming you use bash (the default shell on Ubuntu), run the following command to activate the environment
 source $HOME/.bashrc
@@ -431,8 +431,8 @@ source $HOME/.bashrc
 <details> <summary> For General Linux </summary>
 
 ```console
-# install WasmEdge-0.13.4 with wasi-nn-ggml plugin
-curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml
+# install WasmEdge-0.13.4 with wasi-nn-ggml and tls plugin
+curl -sSf https://raw.githubusercontent.com/WasmEdge/WasmEdge/master/utils/install.sh | bash -s -- --plugin wasi_nn-ggml wasmedge_rustls
 
 # Assuming you use bash (the default shell on Ubuntu), run the following command to activate the environment
 source $HOME/.bashrc
