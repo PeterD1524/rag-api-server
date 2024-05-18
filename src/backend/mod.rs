@@ -1,4 +1,5 @@
 pub(crate) mod ggml;
+mod google_search;
 
 use crate::error;
 use hyper::{Body, Request, Response};
